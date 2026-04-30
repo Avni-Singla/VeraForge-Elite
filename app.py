@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 from pydantic import BaseModel
 from typing import Dict, Any, List, Optional
+from fastapi.responses import HTMLResponse
 
 app = FastAPI(title="VeraForge Elite")
 
@@ -13,19 +14,80 @@ contexts = {
 
 auto_reply_counter = {}
 
-from fastapi.responses import JSONResponse
+@app.get("/", response_class=HTMLResponse)
+def home():
+    return """
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>VeraForge Elite</title>
+        <style>
+            body{
+                margin:0;
+                font-family:Arial, sans-serif;
+                background:linear-gradient(135deg,#0f172a,#1e293b,#111827);
+                color:white;
+                text-align:center;
+                padding:60px;
+            }
+            .card{
+                max-width:700px;
+                margin:auto;
+                background:rgba(255,255,255,0.08);
+                padding:40px;
+                border-radius:20px;
+                box-shadow:0 10px 30px rgba(0,0,0,0.4);
+            }
+            h1{
+                font-size:48px;
+                margin-bottom:10px;
+                color:#38bdf8;
+            }
+            p{
+                font-size:20px;
+                color:#e5e7eb;
+                margin-bottom:30px;
+            }
+            .btn{
+                display:inline-block;
+                margin:10px;
+                padding:14px 24px;
+                border-radius:12px;
+                text-decoration:none;
+                font-weight:bold;
+                color:white;
+                transition:0.3s;
+            }
+            .docs{background:#22c55e;}
+            .health{background:#3b82f6;}
+            .github{background:#9333ea;}
+            .btn:hover{
+                transform:scale(1.05);
+                opacity:0.9;
+            }
+            .footer{
+                margin-top:30px;
+                color:#9ca3af;
+                font-size:14px;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="card">
+            <h1>🚀 VeraForge Elite</h1>
+            <p>AI Merchant Engagement Engine deployed successfully.</p>
 
-@app.get("/")
-def root():
-    return JSONResponse({
-        "name": "VeraForge Elite",
-        "status": "LIVE",
-        "message": "AI merchant engagement engine deployed successfully.",
-        "docs": "/docs",
-        "health": "/v1/healthz",
-        "version": "1.0.0",
-        "creator": "Avni Singla"
-    })
+            <a class="btn docs" href="/docs">📘 API Docs</a>
+            <a class="btn health" href="/v1/healthz">💚 Health Check</a>
+            <a class="btn github" href="https://github.com/Avni-Singla/VeraForge-Elite" target="_blank">💻 GitHub</a>
+
+            <div class="footer">
+                Version 1.0 • Built by Avni Singla
+            </div>
+        </div>
+    </body>
+    </html>
+    """
 
 class ContextRequest(BaseModel):
     scope: str
