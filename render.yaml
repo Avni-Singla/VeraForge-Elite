@@ -1,0 +1,6 @@
+services:
+  - type: web
+    name: veraforge-elite
+    env: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app:app --host 127.0.0.1 --port $PORT
