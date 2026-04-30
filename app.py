@@ -13,6 +13,20 @@ contexts = {
 
 auto_reply_counter = {}
 
+from fastapi.responses import JSONResponse
+
+@app.get("/")
+def root():
+    return JSONResponse({
+        "name": "VeraForge Elite",
+        "status": "LIVE",
+        "message": "AI merchant engagement engine deployed successfully.",
+        "docs": "/docs",
+        "health": "/v1/healthz",
+        "version": "1.0.0",
+        "creator": "Avni Singla"
+    })
+
 class ContextRequest(BaseModel):
     scope: str
     context_id: str
