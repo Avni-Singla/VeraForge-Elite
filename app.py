@@ -2,72 +2,16 @@ from fastapi import FastAPI
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
 from typing import Dict, Any, List, Optional
-import random
+import uvicorn
 import re
 
 app = FastAPI(
     title="VeraForge Elite",
-    version="2.0",
-    description="Version - Contextual Merchant AI Engine"
+    version="5.0",
+    description="Adaptive Merchant Decision Engine"
 )
 
-@app.get("/", response_class=HTMLResponse)
-def home():
-    return """
-    <html>
-    <head>
-        <title>VeraForge Elite</title>
-        <style>
-            body{
-                margin:0;
-                font-family:Arial;
-                background:linear-gradient(135deg,#08111f,#12284a,#0a1322);
-                color:white;
-                text-align:center;
-                padding-top:120px;
-            }
-            .box{
-                width:760px;
-                margin:auto;
-                padding:50px;
-                background:rgba(255,255,255,0.08);
-                border-radius:24px;
-                box-shadow:0 0 40px rgba(0,0,0,0.4);
-            }
-            h1{
-                font-size:58px;
-                color:#44c2ff;
-            }
-            p{
-                font-size:24px;
-                color:#ddd;
-            }
-            a{
-                display:inline-block;
-                margin:15px;
-                padding:16px 28px;
-                border-radius:14px;
-                color:white;
-                text-decoration:none;
-                font-weight:bold;
-            }
-            .b1{background:#18c964;}
-            .b2{background:#3b82f6;}
-            .b3{background:#9333ea;}
-        </style>
-    </head>
-    <body>
-        <div class='box'>
-            <h1> VeraForge Elite</h1>
-            <p>Winning AI Merchant Engagement Engine</p>
-            <a class='b1' href='/docs'>API Docs</a>
-            <a class='b2' href='/v1/healthz'>Health</a>
-            <a class='b3' href='https://github.com/Avni-Singla/VeraForge-Elite'>GitHub</a>
-            <p style='font-size:18px;margin-top:30px;'>Built by Avni Singla • Version 2.0</p>
-        </div>
-    </body>
-    </html>
-    """
+merchant_memory = {}
 
 class ContextRequest(BaseModel):
     scope: str
@@ -88,17 +32,42 @@ class ReplyRequest(BaseModel):
     received_at: str
     turn_number: int
 
-merchant_memory = {}
-
-def detect_category(mid):
-    if mid in merchant_memory:
-        return merchant_memory[mid].get("category_slug", "business")
-    return "business"
-
-def detect_name(mid):
-    if mid in merchant_memory:
-        return merchant_memory[mid]["name"]
-    return "Merchant"
+@app.get("/", response_class=HTMLResponse)
+def home():
+    return """
+    <html>
+    <head>
+    <title>VeraForge Elite</title>
+    <style>
+    body{
+        background:linear-gradient(135deg,#07111f,#142b4d,#07111f);
+        color:white;
+        font-family:Arial;
+        text-align:center;
+        padding-top:120px;
+    }
+    h1{font-size:58px;margin-bottom:10px;color:#4fc3ff;}
+    p{font-size:24px;color:#d0d0d0;}
+    .btn{
+        display:inline-block;
+        margin:15px;
+        padding:16px 28px;
+        border-radius:12px;
+        text-decoration:none;
+        color:white;
+        font-weight:bold;
+        background:#1f8fff;
+    }
+    </style>
+    </head>
+    <body>
+        <h1>VeraForge Elite</h1>
+        <p>AI Merchant Growth Decision Engine</p>
+        <a class='btn' href='/docs'>API Docs</a>
+        <a class='btn' href='/v1/healthz'>Health</a>
+    </body>
+    </html>
+    """
 
 @app.get("/v1/healthz")
 def health():
@@ -109,100 +78,151 @@ def metadata():
     return {
         "team_name": "Avni Singla - VeraForge Elite",
         "model": "Adaptive Merchant Decision Engine",
-        "version": "2.0"
+        "version": "5.0"
     }
 
 @app.post("/v1/context")
 def context(req: ContextRequest):
-    merchant_memory[req.context_id] = {
-        "name": req.payload["identity"]["name"],
-        "locality": req.payload["identity"]["locality"],
-        "category_slug": req.payload.get("category_slug", "business")
-    }
+    merchant_memory[req.context_id] = req.payload
     return {"accepted": True}
+
+def get_info(mid):
+    data = merchant_memory.get(mid, {})
+    identity = data.get("identity", {})
+    return {
+        "name": identity.get("name", "Your Business"),
+        "locality": identity.get("locality", "your area"),
+        "category": data.get("category_slug", "business")
+    }
+
+def restaurant_trigger(name, locality, trig):
+    if trig == "sales_dip":
+        return {
+            "trigger_id": trig,
+            "merchant_id": "m1",
+            "customer_id": None,
+            "body": f"{name} orders in {locality} slowed recently. Launch a Buy 1 Get 1 weekday combo to recover traffic fast.",
+            "cta": "Recover Sales",
+            "send_as": "vera"
+        }
+    if trig == "festival_push":
+        return {
+            "trigger_id": trig,
+            "merchant_id": "m1",
+            "customer_id": None,
+            "body": f"Festive demand is rising near {locality}. Promote a limited-time family meal combo this weekend.",
+            "cta": "Launch Festival Offer",
+            "send_as": "vera"
+        }
+    if trig == "competitor_spike":
+        return {
+            "trigger_id": trig,
+            "merchant_id": "m1",
+            "customer_id": None,
+            "body": f"Nearby competitors are gaining attention in {locality}. Run a 20% first-order promo today.",
+            "cta": "Win Customers Back",
+            "send_as": "vera"
+        }
+    return {
+        "trigger_id": trig,
+        "merchant_id": "m1",
+        "customer_id": None,
+        "body": f"Opportunity detected for {name}. Take action now.",
+        "cta": "Grow Now",
+        "send_as": "vera"
+    }
 
 @app.post("/v1/tick")
 def tick(req: TickRequest):
+    info = get_info("m1")
+    name = info["name"]
+    locality = info["locality"]
+    category = info["category"]
     actions = []
-    for mid, info in merchant_memory.items():
-        category = info["category_slug"]
-        name = info["name"]
-        locality = info["locality"]
-        for trig in req.available_triggers:
-            if trig == "sales_dip":
-                body = f"{name} orders dipped in {locality}. Launch a comeback offer today."
-                cta = "Recover Sales"
-            elif trig == "festival_push":
-                body = f"Festive demand is rising near {locality}. Promote a limited-time special."
-                cta = "Run Festival Campaign"
-            elif trig == "competitor_spike":
-                body = f"Nearby competitors are gaining attention. Counter with a smart promo now."
-                cta = "Win Customers Back"
-            elif trig == "rainy_day":
-                body = f"Rainy weather detected. Push delivery-first offers today."
-                cta = "Push Delivery Offer"
-            else:
-                body = f"New opportunity detected for {name}."
-                cta = "Act Now"
+    for trig in req.available_triggers:
+        if category == "restaurant":
+            actions.append(restaurant_trigger(name, locality, trig))
+        else:
             actions.append({
                 "trigger_id": trig,
-                "merchant_id": mid,
+                "merchant_id": "m1",
                 "customer_id": None,
-                "body": body,
-                "cta": cta,
+                "body": f"{name} has a growth opportunity in {locality}.",
+                "cta": "Act Now",
                 "send_as": "vera"
             })
-    return {"actions": actions[:3]}
+    return {"actions": actions}
 
 @app.post("/v1/reply")
 def reply(req: ReplyRequest):
+    info = get_info(req.merchant_id)
+    name = info["name"]
+    locality = info["locality"]
     msg = req.message.lower()
-    if "stop" in msg or "spam" in msg or "useless" in msg:
+    if any(x in msg for x in [
+        "stop", "spam", "shut up", "useless", "don't message",
+        "do not message", "leave me", "annoying"
+    ]):
         return {
             "action": "end",
-            "body": "Understood. Messaging has been stopped immediately."
+            "body": "Understood. Promotional messaging has been stopped immediately. Reach out anytime if you'd like offers again."
         }
     if req.from_role == "customer":
-        if "book" in msg or "appointment" in msg:
+        if any(x in msg for x in [
+            "book", "table", "reserve", "reservation"
+        ]):
             return {
                 "action": "send",
-                "body": "Your booking request has been shared with the merchant. Confirmation will follow shortly."
+                "body": f"Thanks! Your booking request has been shared with {name}. You’ll receive confirmation shortly."
             }
-        if "price" in msg or "cost" in msg:
+        if any(x in msg for x in [
+            "order", "menu", "delivery", "food"
+        ]):
             return {
                 "action": "send",
-                "body": "Thanks for your interest. The merchant will share pricing details shortly."
+                "body": f"Thanks for reaching out to {name}. Your request has been shared and the team will assist shortly."
             }
-        if "time" in msg or "open" in msg:
+        if any(x in msg for x in [
+            "open", "timing", "hours", "close"
+        ]):
             return {
                 "action": "send",
-                "body": "Your query has been forwarded. The merchant will confirm timings soon."
+                "body": f"{name} will confirm operating hours shortly. Thanks for checking in."
             }
         return {
             "action": "send",
-            "body": "Thanks for reaching out. The merchant has received your message."
+            "body": f"Thanks for contacting {name}. Your message has been shared with the team."
         }
     if req.from_role == "merchant":
-        if "repeat" in msg:
+        if any(x in msg for x in [
+            "sales", "dropping", "low sales", "decline"
+        ]):
             return {
                 "action": "send",
-                "body": "To increase repeat customers: run loyalty rewards, comeback offers, and review follow-ups."
+                "body": f"To recover {name}'s sales in {locality}: run combo offers, boost local ads, and activate repeat-customer campaigns."
             }
-        if "sales" in msg:
+        if any(x in msg for x in [
+            "repeat", "loyal", "customers"
+        ]):
             return {
                 "action": "send",
-                "body": "I recommend urgent recovery campaigns, festive offers, and local visibility boosts."
+                "body": "Increase repeat customers using loyalty rewards, review follow-ups, referral offers, and personalized comeback deals."
             }
-        if "help" in msg:
+        if any(x in msg for x in [
+            "marketing", "grow", "promotion"
+        ]):
             return {
                 "action": "send",
-                "body": "I can help with growth campaigns, retention strategy, customer acquisition, and local demand generation."
+                "body": f"Recommended growth plan for {name}: festive promos, Google review drive, local awareness ads, and retention offers."
             }
         return {
             "action": "send",
-            "body": "I’m ready to help optimize your growth and customer engagement."
+            "body": "I can help with growth strategy, customer retention, promotions, and visibility improvement."
         }
     return {
         "action": "send",
-        "body": "Message received."
+        "body": "Message received successfully."
     }
+
+if __name__ == "__main__":
+    uvicorn.run(app, host="0.0.0.0", port=10000)
