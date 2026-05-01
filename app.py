@@ -1,100 +1,22 @@
 from fastapi import FastAPI
-from pydantic import BaseModel
-from typing import Dict, Any, List, Optional
 from fastapi.responses import HTMLResponse
+from pydantic import BaseModel
+from typing import Optional, List, Dict
+import uvicorn
+import os
 
-app = FastAPI(title="VeraForge Elite")
+app = FastAPI(
+    title="VeraForge Elite",
+    version="2.0"
+)
 
-contexts = {
-    "category": {},
-    "merchant": {},
-    "trigger": {},
-    "customer": {}
-}
-
-auto_reply_counter = {}
-
-@app.get("/", response_class=HTMLResponse)
-def home():
-    return """
-    <!DOCTYPE html>
-    <html>
-    <head>
-        <title>VeraForge Elite</title>
-        <style>
-            body{
-                margin:0;
-                font-family:Arial, sans-serif;
-                background:linear-gradient(135deg,#0f172a,#1e293b,#111827);
-                color:white;
-                text-align:center;
-                padding:60px;
-            }
-            .card{
-                max-width:700px;
-                margin:auto;
-                background:rgba(255,255,255,0.08);
-                padding:40px;
-                border-radius:20px;
-                box-shadow:0 10px 30px rgba(0,0,0,0.4);
-            }
-            h1{
-                font-size:48px;
-                margin-bottom:10px;
-                color:#38bdf8;
-            }
-            p{
-                font-size:20px;
-                color:#e5e7eb;
-                margin-bottom:30px;
-            }
-            .btn{
-                display:inline-block;
-                margin:10px;
-                padding:14px 24px;
-                border-radius:12px;
-                text-decoration:none;
-                font-weight:bold;
-                color:white;
-                transition:0.3s;
-            }
-            .docs{background:#22c55e;}
-            .health{background:#3b82f6;}
-            .github{background:#9333ea;}
-            .btn:hover{
-                transform:scale(1.05);
-                opacity:0.9;
-            }
-            .footer{
-                margin-top:30px;
-                color:#9ca3af;
-                font-size:14px;
-            }
-        </style>
-    </head>
-    <body>
-        <div class="card">
-            <h1>🚀 VeraForge Elite</h1>
-            <p>AI Merchant Engagement Engine deployed successfully.</p>
-
-            <a class="btn docs" href="/docs">📘 API Docs</a>
-            <a class="btn health" href="/v1/healthz">💚 Health Check</a>
-            <a class="btn github" href="https://github.com/Avni-Singla/VeraForge-Elite" target="_blank">💻 GitHub</a>
-
-            <div class="footer">
-                Version 1.0 • Built by Avni Singla
-            </div>
-        </div>
-    </body>
-    </html>
-    """
-
+MEMORY = {}
 class ContextRequest(BaseModel):
     scope: str
     context_id: str
     version: int
-    payload: Dict[str, Any]
-    delivered_at: Optional[str] = None
+    payload: dict
+    delivered_at: str
 
 class TickRequest(BaseModel):
     now: str
@@ -103,194 +25,161 @@ class TickRequest(BaseModel):
 class ReplyRequest(BaseModel):
     conversation_id: str
     merchant_id: str
-    customer_id: Optional[str] = None
     from_role: str
     message: str
     received_at: str
     turn_number: int
 
-def merchant_name(m):
-    return m.get("identity", {}).get("name", "Your Business")
-
-def owner_name(m):
-    return m.get("identity", {}).get("owner_first_name", "there")
-
-def locality(m):
-    return m.get("identity", {}).get("locality", "your area")
-
-def active_offer(m):
-    offers = m.get("offers", [])
-    for o in offers:
-        if o.get("status") == "active":
-            return o.get("title", "")
-    return ""
-
-def category_slug(m):
-    return m.get("category_slug", "general")
-
-def perf_views(m):
-    return m.get("performance", {}).get("views", 100)
-
-def perf_ctr(m):
-    return m.get("performance", {}).get("ctr", 2.0)
-
-def is_hostile(msg):
-    msg = msg.lower()
-    words = ["stop messaging", "spam", "useless", "annoying", "leave me"]
-    return any(w in msg for w in words)
-
-def is_commitment(msg):
-    msg = msg.lower()
-    words = ["lets do it", "let's do it", "do it", "launch", "yes proceed", "what next"]
-    return any(w in msg for w in words)
-
-def is_auto_reply(msg):
-    msg = msg.lower()
-    patterns = [
-        "thank you for contacting us",
-        "our team will respond shortly",
-        "we will get back",
-        "away right now"
-    ]
-    return any(p in msg for p in patterns)
-
-def compose_action(trigger_id: str):
-    trigger = contexts["trigger"].get(trigger_id, {
-        "kind": trigger_id,
-        "payload": {},
-        "merchant_id": "m1"
-    })
-    merchant_id = trigger.get("merchant_id", "m1")
-    merchant = contexts["merchant"].get(merchant_id, {})
-
-    if not merchant:
-        return None
-    slug = category_slug(merchant)
-    owner = owner_name(merchant)
-    mname = merchant_name(merchant)
-    area = locality(merchant)
-    offer = active_offer(merchant)
-    views = perf_views(merchant)
-    ctr = perf_ctr(merchant)
-    repeat_users = max(18, int(views * 0.22))
-    hot_searches = max(25, int(views * 0.30))
-    lost_users = max(12, int(views * 0.15))
-    kind = trigger.get("kind", trigger_id)
-    if slug == "restaurant":
-        if "sales_dip" in kind:
-            body = (
-                f"{owner}, lunch demand dipped today. "
-                f"{repeat_users} nearby diners in {area} haven’t ordered recently. "
-                f"Should I send them {offer or 'a lunch combo'} for 1–3 PM now?"
-            )
-        elif "search_spike" in kind:
-            body = (
-                f"{owner}, food searches in {area} are rising now. "
-                f"{hot_searches} people are browsing nearby options. "
-                f"Should I boost {mname} with {offer or 'your bestseller'} today?"
-            )
-        else:
-            body = (
-                f"{owner}, {lost_users} repeat diners from {area} look inactive. "
-                f"Want me to win them back using {offer or 'a comeback offer'} today?"
-            )
-    elif slug == "dentist":
-        body = (
-            f"Dr. {owner}, check-up searches rose in {area}. "
-            f"Should I help fill 2 consultation slots this evening?"
-        )
-    elif slug == "salon":
-        body = (
-            f"{owner}, beauty bookings are picking up in {area}. "
-            f"{hot_searches} nearby people are exploring salons today. "
-            f"Should I promote premium services now?"
-        )
-    elif slug == "gym":
-        body = (
-            f"{owner}, {lost_users} members haven’t visited lately. "
-            f"Want me to launch a 7-day comeback challenge today?"
-        )
-    elif slug == "pharmacy":
-        body = (
-            f"{owner}, refill demand may be due soon in {area}. "
-            f"Should I send reorder reminders today?"
-        )
-    else:
-        body = (
-            f"{owner}, demand in {area} looks active today. "
-            f"Should I promote {mname} now?"
-        )
-    return {
-        "trigger_id": trigger_id,
-        "merchant_id": merchant_id,
-        "customer_id": None,
-        "body": body,
-        "cta": "Yes, launch it",
-        "send_as": "vera"
+@app.get("/", response_class=HTMLResponse)
+def home():
+    return """
+    <html>
+    <head>
+    <title>VeraForge Elite</title>
+    <style>
+    body{
+        margin:0;
+        background:linear-gradient(135deg,#07152d,#11284f);
+        font-family:Arial;
+        color:white;
+        display:flex;
+        justify-content:center;
+        align-items:center;
+        height:100vh;
     }
+    .card{
+        background:rgba(255,255,255,0.08);
+        padding:50px;
+        border-radius:20px;
+        text-align:center;
+        width:700px;
+    }
+    a{
+        display:inline-block;
+        margin:10px;
+        padding:14px 24px;
+        border-radius:10px;
+        text-decoration:none;
+        color:white;
+        font-weight:bold;
+    }
+    .g{background:#22c55e;}
+    .b{background:#3b82f6;}
+    .p{background:#9333ea;}
+    </style>
+    </head>
+    <body>
+        <div class="card">
+            <h1> VeraForge Elite 2.0</h1>
+            <h2>Winning Merchant AI Engine</h2>
+            <p>Smart Triggering • Contextual Replies • High Conversion Actions</p>
+            <a class='g' href='/docs'>API Docs</a>
+            <a class='b' href='/v1/healthz'>Health</a>
+            <a class='p' href='/v1/metadata'>Metadata</a>
+        </div>
+    </body>
+    </html>
+    """
 
 @app.get("/v1/healthz")
-def healthz():
-    return {
-        "ok": True,
-        "status": "healthy"
-    }
+def health():
+    return {"ok": True, "status": "healthy"}
 
 @app.get("/v1/metadata")
 def metadata():
     return {
-        "team_name": "Avni Singla - VeraForge Elite",
-        "model": "Deterministic Contextual Decision Engine",
-        "version": "3.0"
+        "name": "VeraForge Elite",
+        "version": "2.0.0",
+        "creator": "Avni Singla",
+        "mode": "Winning Edition"
     }
 
 @app.post("/v1/context")
 def push_context(req: ContextRequest):
-    if req.scope not in contexts:
-        return {"accepted": False}
-    contexts[req.scope][req.context_id] = req.payload
+    MEMORY[req.context_id] = req.payload
     return {"accepted": True}
 
 @app.post("/v1/tick")
 def tick(req: TickRequest):
     actions = []
-    for trig_id in req.available_triggers[:3]:
-        action = compose_action(trig_id)
-        if action:
-            actions.append(action)
+    for merchant_id, data in MEMORY.items():
+        name = data["identity"]["name"]
+        locality = data["identity"]["locality"]
+        category = data["category_slug"]
+        for trig in req.available_triggers:
+            body = compose_trigger_message(
+                trig, name, locality, category
+            )
+            actions.append({
+                "trigger_id": trig,
+                "merchant_id": merchant_id,
+                "customer_id": None,
+                "body": body,
+                "cta": "Yes, launch it",
+                "send_as": "vera"
+            })
     return {"actions": actions}
+
+def compose_trigger_message(trigger, name, locality, category):
+    if trigger == "sales_dip":
+        return f"{name}: Orders in {locality} dipped recently. Launch a comeback offer today?"
+    elif trigger == "dormant_users":
+        return f"{name}: Repeat customers have gone inactive. Send a loyalty reward to bring them back?"
+    elif trigger == "festival_push":
+        return f"{name}: Local festive demand is rising in {locality}. Promote a limited-time special?"
+    elif trigger == "regulation_change":
+        return f"{name}: Customers now prefer compliant and modern {category} businesses. Promote your trust factor?"
+    elif trigger == "competitor_spike":
+        return f"{name}: Nearby competitors are gaining attention. Run a smart counter-offer now?"
+    elif trigger == "weather_opportunity":
+        return f"{name}: Weather shift in {locality} can increase demand today. Push a timely campaign?"
+    return f"{name}: Opportunity detected. Promote your business now?"
 
 @app.post("/v1/reply")
 def reply(req: ReplyRequest):
-    msg = req.message
-    cid = req.conversation_id
-    if is_hostile(msg):
+    msg = req.message.lower()
+    stop_words = ["stop", "unsubscribe", "spam", "useless", "don't message"]
+    if any(x in msg for x in stop_words):
         return {
             "action": "end",
-            "body": "Understood. I’ll stop here and only reach out when genuinely useful."
+            "body": "Understood. Messaging has been stopped. We’ll only reconnect if requested."
         }
-    if is_auto_reply(msg):
-        auto_reply_counter[cid] = auto_reply_counter.get(cid, 0) + 1
-        if auto_reply_counter[cid] >= 2:
+    if req.from_role == "customer":
+        if "book" in msg or "appointment" in msg:
             return {
-                "action": "end",
-                "body": ""
+                "action": "send",
+                "body": "Your booking request has been shared with the merchant. They’ll confirm shortly."
+            }
+        if "price" in msg or "cost" in msg:
+            return {
+                "action": "send",
+                "body": "Thanks for your interest. The merchant will share pricing details soon."
             }
         return {
-            "action": "wait",
-            "wait_seconds": 60
+            "action": "send",
+            "body": "Thanks for reaching out. Your message has been forwarded to the merchant."
         }
-    if is_commitment(msg):
+
+    if req.from_role == "merchant":
+        if "x-ray" in msg or "audit" in msg:
+            return {
+                "action": "send",
+                "body": "I recommend promoting upgraded diagnostic quality and patient safety to attract new customers."
+            }
+        if "help" in msg or "growth" in msg:
+            return {
+                "action": "send",
+                "body": "I can help boost repeat customers, local visibility, and campaign conversions."
+            }
         return {
             "action": "send",
-            "body": "Done — campaign draft is ready for today. Confirm and I’ll launch it now."
-        }
-    if "price" in msg.lower() or "cost" in msg.lower():
-        return {
-            "action": "send",
-            "body": "We can start small and only scale what performs. Want a low-budget test first?"
+            "body": "Understood. I’ll optimize the next growth opportunity for your business."
         }
     return {
         "action": "send",
-        "body": "Got it. I’ll monitor performance and share the next best growth opportunity."
+        "body": "Message received."
     }
+
+if __name__ == "__main__":
+    port = int(os.environ.get("PORT", 10000))
+    uvicorn.run(app, host="0.0.0.0", port=port)
