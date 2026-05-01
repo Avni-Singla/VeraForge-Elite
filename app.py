@@ -1,21 +1,79 @@
 from fastapi import FastAPI
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
-from typing import Optional, List, Dict
-import uvicorn
-import os
+from typing import Dict, Any, List, Optional
+import random
+import re
 
 app = FastAPI(
     title="VeraForge Elite",
-    version="2.0"
+    version="2.0",
+    description="Version - Contextual Merchant AI Engine"
 )
 
-MEMORY = {}
+@app.get("/", response_class=HTMLResponse)
+def home():
+    return """
+    <html>
+    <head>
+        <title>VeraForge Elite</title>
+        <style>
+            body{
+                margin:0;
+                font-family:Arial;
+                background:linear-gradient(135deg,#08111f,#12284a,#0a1322);
+                color:white;
+                text-align:center;
+                padding-top:120px;
+            }
+            .box{
+                width:760px;
+                margin:auto;
+                padding:50px;
+                background:rgba(255,255,255,0.08);
+                border-radius:24px;
+                box-shadow:0 0 40px rgba(0,0,0,0.4);
+            }
+            h1{
+                font-size:58px;
+                color:#44c2ff;
+            }
+            p{
+                font-size:24px;
+                color:#ddd;
+            }
+            a{
+                display:inline-block;
+                margin:15px;
+                padding:16px 28px;
+                border-radius:14px;
+                color:white;
+                text-decoration:none;
+                font-weight:bold;
+            }
+            .b1{background:#18c964;}
+            .b2{background:#3b82f6;}
+            .b3{background:#9333ea;}
+        </style>
+    </head>
+    <body>
+        <div class='box'>
+            <h1> VeraForge Elite</h1>
+            <p>Winning AI Merchant Engagement Engine</p>
+            <a class='b1' href='/docs'>API Docs</a>
+            <a class='b2' href='/v1/healthz'>Health</a>
+            <a class='b3' href='https://github.com/Avni-Singla/VeraForge-Elite'>GitHub</a>
+            <p style='font-size:18px;margin-top:30px;'>Built by Avni Singla • Version 2.0</p>
+        </div>
+    </body>
+    </html>
+    """
+
 class ContextRequest(BaseModel):
     scope: str
     context_id: str
     version: int
-    payload: dict
+    payload: Dict[str, Any]
     delivered_at: str
 
 class TickRequest(BaseModel):
@@ -30,56 +88,17 @@ class ReplyRequest(BaseModel):
     received_at: str
     turn_number: int
 
-@app.get("/", response_class=HTMLResponse)
-def home():
-    return """
-    <html>
-    <head>
-    <title>VeraForge Elite</title>
-    <style>
-    body{
-        margin:0;
-        background:linear-gradient(135deg,#07152d,#11284f);
-        font-family:Arial;
-        color:white;
-        display:flex;
-        justify-content:center;
-        align-items:center;
-        height:100vh;
-    }
-    .card{
-        background:rgba(255,255,255,0.08);
-        padding:50px;
-        border-radius:20px;
-        text-align:center;
-        width:700px;
-    }
-    a{
-        display:inline-block;
-        margin:10px;
-        padding:14px 24px;
-        border-radius:10px;
-        text-decoration:none;
-        color:white;
-        font-weight:bold;
-    }
-    .g{background:#22c55e;}
-    .b{background:#3b82f6;}
-    .p{background:#9333ea;}
-    </style>
-    </head>
-    <body>
-        <div class="card">
-            <h1> VeraForge Elite 2.0</h1>
-            <h2>Winning Merchant AI Engine</h2>
-            <p>Smart Triggering • Contextual Replies • High Conversion Actions</p>
-            <a class='g' href='/docs'>API Docs</a>
-            <a class='b' href='/v1/healthz'>Health</a>
-            <a class='p' href='/v1/metadata'>Metadata</a>
-        </div>
-    </body>
-    </html>
-    """
+merchant_memory = {}
+
+def detect_category(mid):
+    if mid in merchant_memory:
+        return merchant_memory[mid].get("category_slug", "business")
+    return "business"
+
+def detect_name(mid):
+    if mid in merchant_memory:
+        return merchant_memory[mid]["name"]
+    return "Merchant"
 
 @app.get("/v1/healthz")
 def health():
@@ -88,98 +107,102 @@ def health():
 @app.get("/v1/metadata")
 def metadata():
     return {
-        "name": "VeraForge Elite",
-        "version": "2.0.0",
-        "creator": "Avni Singla",
-        "mode": "Winning Edition"
+        "team_name": "Avni Singla - VeraForge Elite",
+        "model": "Adaptive Merchant Decision Engine",
+        "version": "2.0"
     }
 
 @app.post("/v1/context")
-def push_context(req: ContextRequest):
-    MEMORY[req.context_id] = req.payload
+def context(req: ContextRequest):
+    merchant_memory[req.context_id] = {
+        "name": req.payload["identity"]["name"],
+        "locality": req.payload["identity"]["locality"],
+        "category_slug": req.payload.get("category_slug", "business")
+    }
     return {"accepted": True}
 
 @app.post("/v1/tick")
 def tick(req: TickRequest):
     actions = []
-    for merchant_id, data in MEMORY.items():
-        name = data["identity"]["name"]
-        locality = data["identity"]["locality"]
-        category = data["category_slug"]
+    for mid, info in merchant_memory.items():
+        category = info["category_slug"]
+        name = info["name"]
+        locality = info["locality"]
         for trig in req.available_triggers:
-            body = compose_trigger_message(
-                trig, name, locality, category
-            )
+            if trig == "sales_dip":
+                body = f"{name} orders dipped in {locality}. Launch a comeback offer today."
+                cta = "Recover Sales"
+            elif trig == "festival_push":
+                body = f"Festive demand is rising near {locality}. Promote a limited-time special."
+                cta = "Run Festival Campaign"
+            elif trig == "competitor_spike":
+                body = f"Nearby competitors are gaining attention. Counter with a smart promo now."
+                cta = "Win Customers Back"
+            elif trig == "rainy_day":
+                body = f"Rainy weather detected. Push delivery-first offers today."
+                cta = "Push Delivery Offer"
+            else:
+                body = f"New opportunity detected for {name}."
+                cta = "Act Now"
             actions.append({
                 "trigger_id": trig,
-                "merchant_id": merchant_id,
+                "merchant_id": mid,
                 "customer_id": None,
                 "body": body,
-                "cta": "Yes, launch it",
+                "cta": cta,
                 "send_as": "vera"
             })
-    return {"actions": actions}
-
-def compose_trigger_message(trigger, name, locality, category):
-    if trigger == "sales_dip":
-        return f"{name}: Orders in {locality} dipped recently. Launch a comeback offer today?"
-    elif trigger == "dormant_users":
-        return f"{name}: Repeat customers have gone inactive. Send a loyalty reward to bring them back?"
-    elif trigger == "festival_push":
-        return f"{name}: Local festive demand is rising in {locality}. Promote a limited-time special?"
-    elif trigger == "regulation_change":
-        return f"{name}: Customers now prefer compliant and modern {category} businesses. Promote your trust factor?"
-    elif trigger == "competitor_spike":
-        return f"{name}: Nearby competitors are gaining attention. Run a smart counter-offer now?"
-    elif trigger == "weather_opportunity":
-        return f"{name}: Weather shift in {locality} can increase demand today. Push a timely campaign?"
-    return f"{name}: Opportunity detected. Promote your business now?"
+    return {"actions": actions[:3]}
 
 @app.post("/v1/reply")
 def reply(req: ReplyRequest):
     msg = req.message.lower()
-    stop_words = ["stop", "unsubscribe", "spam", "useless", "don't message"]
-    if any(x in msg for x in stop_words):
+    if "stop" in msg or "spam" in msg or "useless" in msg:
         return {
             "action": "end",
-            "body": "Understood. Messaging has been stopped. We’ll only reconnect if requested."
+            "body": "Understood. Messaging has been stopped immediately."
         }
     if req.from_role == "customer":
         if "book" in msg or "appointment" in msg:
             return {
                 "action": "send",
-                "body": "Your booking request has been shared with the merchant. They’ll confirm shortly."
+                "body": "Your booking request has been shared with the merchant. Confirmation will follow shortly."
             }
         if "price" in msg or "cost" in msg:
             return {
                 "action": "send",
-                "body": "Thanks for your interest. The merchant will share pricing details soon."
+                "body": "Thanks for your interest. The merchant will share pricing details shortly."
+            }
+        if "time" in msg or "open" in msg:
+            return {
+                "action": "send",
+                "body": "Your query has been forwarded. The merchant will confirm timings soon."
             }
         return {
             "action": "send",
-            "body": "Thanks for reaching out. Your message has been forwarded to the merchant."
+            "body": "Thanks for reaching out. The merchant has received your message."
         }
-
     if req.from_role == "merchant":
-        if "x-ray" in msg or "audit" in msg:
+        if "repeat" in msg:
             return {
                 "action": "send",
-                "body": "I recommend promoting upgraded diagnostic quality and patient safety to attract new customers."
+                "body": "To increase repeat customers: run loyalty rewards, comeback offers, and review follow-ups."
             }
-        if "help" in msg or "growth" in msg:
+        if "sales" in msg:
             return {
                 "action": "send",
-                "body": "I can help boost repeat customers, local visibility, and campaign conversions."
+                "body": "I recommend urgent recovery campaigns, festive offers, and local visibility boosts."
+            }
+        if "help" in msg:
+            return {
+                "action": "send",
+                "body": "I can help with growth campaigns, retention strategy, customer acquisition, and local demand generation."
             }
         return {
             "action": "send",
-            "body": "Understood. I’ll optimize the next growth opportunity for your business."
+            "body": "I’m ready to help optimize your growth and customer engagement."
         }
     return {
         "action": "send",
         "body": "Message received."
     }
-
-if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 10000))
-    uvicorn.run(app, host="0.0.0.0", port=port)
