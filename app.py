@@ -6,7 +6,7 @@ import re
 
 app = FastAPI(
     title="VeraForge Elite",
-    version="8.0",
+    version="8.1",
     description="AI Merchant Growth Decision Engine"
 )
 
@@ -78,15 +78,14 @@ def health():
 def metadata():
     return {
         "team_name": "Avni Singla - VeraForge Elite",
-        "version": "8.0",
+        "version": "8.1",
         "engine": "Evaluator Optimized Decision AI"
     }
 
 def normalize(text):
     text = text.lower()
     text = re.sub(r'[^a-z0-9 ]', '', text)
-    words = text.split()
-    return " ".join(words[:6])
+    return " ".join(text.split()[:6])
 
 def detect_category(merchant_id):
     ctx = merchant_memory.get(merchant_id, {})
@@ -101,13 +100,13 @@ def merchant_name(merchant_id):
 
 def repeated_loop(cid, msg):
     norm = normalize(msg)
-    count = loop_memory.get(cid, [])
-    count.append(norm)
-    loop_memory[cid] = count[-4:]
-    if len(count) >= 3:
-        if count[-1] == count[-2]:
+    arr = loop_memory.get(cid, [])
+    arr.append(norm)
+    loop_memory[cid] = arr[-4:]
+    if len(arr) >= 3:
+        if arr[-1] == arr[-2]:
             return True
-        if len(set(count[-3:])) == 1:
+        if len(set(arr[-3:])) == 1:
             return True
     return False
 
@@ -168,7 +167,6 @@ def reply(req: ReplyRequest):
             "action": "end",
             "body": "We'll pause here for now. Reach out anytime when you'd like fresh growth ideas."
         }
-
     if req.from_role == "customer":
         if any(x in msg for x in ["book", "reserve", "table", "appointment"]):
             return {
@@ -194,31 +192,40 @@ def reply(req: ReplyRequest):
             "action": "send",
             "body": f"Thanks for contacting {name}. Your message has been shared with the merchant."
         }
-
-    if category == "restaurant" or any(x in msg for x in ["pizza", "food", "restaurant", "cafe"]):
+    if category in ["clinic", "healthcare"] or any(
+        x in msg for x in ["clinic", "doctor", "x-ray", "patient", "scan", "dentist", "hospital"]
+    ):
         return {
             "action": "send",
-            "body": "Grow orders using lunch combos, Google review boosts, delivery promos, repeat-diner rewards, and weekend family offers."
+            "body": "Increase patient bookings using Google Maps visibility, recall reminders, same-day diagnostics, doctor referrals, and review growth."
         }
-    if category == "salon" or any(x in msg for x in ["salon", "spa", "beauty", "hair"]):
+    if category == "salon" or any(
+        x in msg for x in ["salon", "spa", "beauty", "hair"]
+    ):
         return {
             "action": "send",
             "body": "Increase bookings using bridal packages, rebooking reminders, referral rewards, makeover reels, and festive beauty offers."
         }
-    if category in ["clinic", "healthcare"] or any(x in msg for x in ["clinic", "doctor", "x-ray", "patient", "scan", "dentist"]):
-        return {
-            "action": "send",
-            "body": "Increase patient bookings using local SEO, recall reminders, same-day diagnostics, dentist partnerships, and review growth."
-        }
-    if category == "gym" or any(x in msg for x in ["gym", "fitness", "trainer"]):
+    if category == "gym" or any(
+        x in msg for x in ["gym", "fitness", "trainer", "workout"]
+    ):
         return {
             "action": "send",
             "body": "Grow memberships using free trials, referral rewards, body-transformation stories, retention plans, and class upsells."
         }
-    if category in ["education", "academy"] or any(x in msg for x in ["tuition", "academy", "coaching"]):
+    if category in ["education", "academy"] or any(
+        x in msg for x in ["tuition", "academy", "coaching", "school"]
+    ):
         return {
             "action": "send",
             "body": "Increase enrollments using demo classes, topper success stories, parent trust campaigns, referrals, and exam-season offers."
+        }
+    if category == "restaurant" or any(
+        x in msg for x in ["pizza", "food", "restaurant", "cafe", "orders", "table"]
+    ):
+        return {
+            "action": "send",
+            "body": "Grow orders using lunch combos, Google review boosts, delivery promos, repeat-diner rewards, and weekend family offers."
         }
     if any(x in msg for x in ["sales", "dropping", "decline", "down"]):
         return {
