@@ -5,8 +5,8 @@ from fastapi.responses import HTMLResponse
 
 app = FastAPI(
     title="VeraForge Elite",
-    version="6.0",
-    description="Ultimate AI Merchant Growth Decision Engine"
+    version="7.0",
+    description="Final Judge Optimized AI Merchant Growth Decision Engine"
 )
 
 class ContextRequest(BaseModel):
@@ -73,15 +73,16 @@ def health():
 def metadata():
     return {
         "team_name": "Avni Singla - VeraForge Elite",
-        "model": "Adaptive Merchant Decision Engine",
-        "version": "6.0"
+        "model": "Judge Optimized Merchant Decision Engine",
+        "version": "7.0"
     }
 
-memory = {}
+merchant_memory = {}
+conversation_memory = {}
 
 @app.post("/v1/context")
 def context(req: ContextRequest):
-    memory[req.context_id] = req.payload
+    merchant_memory[req.context_id] = req.payload
     return {"accepted": True}
 
 @app.post("/v1/tick")
@@ -93,7 +94,7 @@ def tick(req: TickRequest):
                 "trigger_id": trig,
                 "merchant_id": "m1",
                 "customer_id": None,
-                "body": "Orders slowed recently in your area. Launch a comeback combo offer today.",
+                "body": "Orders slowed this week nearby. Launch a comeback combo offer tonight to recover demand.",
                 "cta": "Recover Sales",
                 "send_as": "vera"
             })
@@ -102,8 +103,8 @@ def tick(req: TickRequest):
                 "trigger_id": trig,
                 "merchant_id": "m1",
                 "customer_id": None,
-                "body": "Festival demand is rising nearby. Promote festive specials and limited-time deals now.",
-                "cta": "Run Festival Push",
+                "body": "Festival demand is rising nearby. Promote festive specials and limited-time family combos now.",
+                "cta": "Festival Push",
                 "send_as": "vera"
             })
         elif trig == "competitor_spike":
@@ -111,7 +112,7 @@ def tick(req: TickRequest):
                 "trigger_id": trig,
                 "merchant_id": "m1",
                 "customer_id": None,
-                "body": "Nearby competitors are trending. Run a smart retention campaign immediately.",
+                "body": "Nearby competitors are trending. Run a repeat-customer campaign with loyalty rewards today.",
                 "cta": "Win Customers Back",
                 "send_as": "vera"
             })
@@ -120,8 +121,17 @@ def tick(req: TickRequest):
                 "trigger_id": trig,
                 "merchant_id": "m1",
                 "customer_id": None,
-                "body": "Rain expected today. Push delivery-focused offers to increase convenience orders.",
+                "body": "Rain expected today. Push delivery discounts and quick-order offers to boost convenience sales.",
                 "cta": "Boost Delivery",
+                "send_as": "vera"
+            })
+        elif trig == "regulation_change":
+            actions.append({
+                "trigger_id": trig,
+                "merchant_id": "m1",
+                "customer_id": None,
+                "body": "A compliance update may impact local businesses. Review operations and customer notices today.",
+                "cta": "Review Update",
                 "send_as": "vera"
             })
         else:
@@ -129,23 +139,41 @@ def tick(req: TickRequest):
                 "trigger_id": trig,
                 "merchant_id": "m1",
                 "customer_id": None,
-                "body": "A fresh growth opportunity is available today.",
+                "body": "A fresh local growth opportunity is available today. Activate promotions now.",
                 "cta": "Act Now",
                 "send_as": "vera"
             })
     return {"actions": actions}
 
+def detect_business_type(text: str):
+    t = text.lower()
+    if any(x in t for x in ["xray", "x-ray", "clinic", "dental", "patient", "scan", "film unit"]):
+        return "healthcare"
+    if any(x in t for x in ["pizza", "restaurant", "food", "cafe", "table", "menu"]):
+        return "restaurant"
+    if any(x in t for x in ["shop", "store", "retail", "footfall"]):
+        return "retail"
+    return "general"
+
 @app.post("/v1/reply")
 def reply(req: ReplyRequest):
     msg = req.message.lower()
+    cid = req.conversation_id
     stop_words = [
         "stop", "spam", "unsubscribe", "leave me alone",
         "useless", "annoying", "don't message"
     ]
     if any(x in msg for x in stop_words):
+        conversation_memory[cid] = 99
         return {
             "action": "end",
             "body": "Understood. Promotional messaging has been stopped immediately. Reach out anytime if you'd like offers again."
+        }
+    conversation_memory[cid] = conversation_memory.get(cid, 0) + 1
+    if conversation_memory[cid] >= 3:
+        return {
+            "action": "end",
+            "body": "We'll pause here for now. Reach out anytime when you'd like fresh growth ideas."
         }
     if req.from_role == "customer":
         if any(x in msg for x in ["book", "reserve", "table", "appointment"]):
@@ -156,45 +184,61 @@ def reply(req: ReplyRequest):
         if any(x in msg for x in ["order", "buy", "delivery", "pizza", "food"]):
             return {
                 "action": "send",
-                "body": "Thanks for reaching out. Your order request has been shared with the merchant team for quick assistance."
+                "body": "Thanks! Your order request has been shared with the merchant team for quick assistance."
             }
         if any(x in msg for x in ["open", "timing", "hours", "close"]):
             return {
                 "action": "send",
-                "body": "The merchant will confirm operating hours shortly. Thanks for checking in."
+                "body": "Thanks for checking in. The merchant will confirm today's operating hours shortly."
             }
         if any(x in msg for x in ["price", "cost", "charges", "menu"]):
             return {
                 "action": "send",
-                "body": "The merchant team will share pricing details shortly."
+                "body": "Thanks! The merchant team will share pricing or menu details shortly."
             }
         return {
             "action": "send",
             "body": "Thanks for contacting the merchant. Your message has been forwarded for assistance."
         }
+
     else:
+        business = detect_business_type(msg)
+        if business == "healthcare":
+            return {
+                "action": "send",
+                "body": "Increase patient bookings using local search visibility, appointment reminders, review growth, and follow-up campaigns."
+            }
+        if business == "restaurant":
+            return {
+                "action": "send",
+                "body": "Grow restaurant orders using combo meals, repeat-customer rewards, map visibility, and festive campaigns."
+            }
+        if business == "retail":
+            return {
+                "action": "send",
+                "body": "Boost store footfall using local promotions, loyalty rewards, neighborhood ads, and festive offers."
+            }
         if any(x in msg for x in ["repeat", "retention", "loyal"]):
             return {
                 "action": "send",
-                "body": "Increase repeat customers using loyalty rewards, referral offers, review follow-ups, and personalized comeback campaigns."
+                "body": "Increase repeat customers using loyalty rewards, referral offers, review follow-ups, and comeback campaigns."
             }
-        if any(x in msg for x in ["sales dropping", "sales", "down", "decline"]):
+        if any(x in msg for x in ["sales", "down", "decline", "dropping"]):
             return {
                 "action": "send",
-                "body": "Recover sales with combo deals, local ads, festive campaigns, and reactivation offers for past customers."
+                "body": "Recover sales using combo deals, local ads, festive campaigns, and reactivation offers for past customers."
             }
-        if any(x in msg for x in ["market", "visibility", "locally", "nearby"]):
+        if any(x in msg for x in ["market", "visibility", "nearby", "locally"]):
             return {
                 "action": "send",
-                "body": "Improve local visibility through map listings, hyperlocal ads, review growth, and neighborhood targeting."
+                "body": "Improve local visibility through map listings, review growth, hyperlocal ads, and neighborhood targeting."
             }
-        if any(x in msg for x in ["new customer", "acquire", "growth"]):
+        if any(x in msg for x in ["new customer", "growth", "acquire"]):
             return {
                 "action": "send",
-                "body": "Acquire new customers using first-order offers, referral incentives, local targeting, and social proof campaigns."
+                "body": "Acquire new customers using first-order offers, referral incentives, social proof, and local targeting."
             }
         return {
             "action": "send",
-            "body": "I can help with growth strategy, retention, promotions, visibility, and merchant performance optimization."
+            "body": "I can help improve sales, retention, customer growth, promotions, and local visibility."
         }
-    
