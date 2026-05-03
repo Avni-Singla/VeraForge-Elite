@@ -2,10 +2,11 @@ from fastapi import FastAPI
 from pydantic import BaseModel
 from typing import Dict, Any, List
 from fastapi.responses import HTMLResponse
+import re
 
 app = FastAPI(
     title="VeraForge Elite",
-    version="7.0",
+    version="8.0",
     description="AI Merchant Growth Decision Engine"
 )
 
@@ -27,6 +28,9 @@ class ReplyRequest(BaseModel):
     message: str
     received_at: str
     turn_number: int
+
+merchant_memory = {}
+loop_memory = {}
 
 @app.get("/", response_class=HTMLResponse)
 def home():
@@ -74,16 +78,42 @@ def health():
 def metadata():
     return {
         "team_name": "Avni Singla - VeraForge Elite",
-        "model": "Adaptive Merchant Decision Engine",
-        "version": "7.0"
+        "version": "8.0",
+        "engine": "Evaluator Optimized Decision AI"
     }
 
-memory = {}
-loop_memory = {}
+def normalize(text):
+    text = text.lower()
+    text = re.sub(r'[^a-z0-9 ]', '', text)
+    words = text.split()
+    return " ".join(words[:6])
+
+def detect_category(merchant_id):
+    ctx = merchant_memory.get(merchant_id, {})
+    payload = ctx.get("payload", {})
+    return payload.get("category_slug", "").lower()
+
+def merchant_name(merchant_id):
+    ctx = merchant_memory.get(merchant_id, {})
+    payload = ctx.get("payload", {})
+    identity = payload.get("identity", {})
+    return identity.get("name", "your business")
+
+def repeated_loop(cid, msg):
+    norm = normalize(msg)
+    count = loop_memory.get(cid, [])
+    count.append(norm)
+    loop_memory[cid] = count[-4:]
+    if len(count) >= 3:
+        if count[-1] == count[-2]:
+            return True
+        if len(set(count[-3:])) == 1:
+            return True
+    return False
 
 @app.post("/v1/context")
 def context(req: ContextRequest):
-    memory[req.context_id] = req.payload
+    merchant_memory[req.context_id] = req.dict()
     return {"accepted": True}
 
 @app.post("/v1/tick")
@@ -91,22 +121,22 @@ def tick(req: TickRequest):
     actions = []
     for trig in req.available_triggers:
         if trig == "sales_dip":
-            body = "Orders dipped this week nearby. Launch a limited-time combo campaign tonight to recover momentum."
-            cta = "Boost Orders"
+            body = "Orders slowed nearby this week. Launch a dinner combo + comeback SMS campaign tonight."
+            cta = "Recover Sales"
         elif trig == "festival_push":
-            body = "Festival demand is rising nearby. Promote festive specials and family-value bundles today."
+            body = "Festival demand is rising nearby. Promote festive specials and family bundles today."
             cta = "Run Festival Push"
         elif trig == "competitor_spike":
-            body = "Nearby competitors are trending. Win repeat customers back with loyalty rewards today."
+            body = "Nearby competitors are trending. Win repeat customers back with loyalty rewards now."
             cta = "Win Customers Back"
         elif trig == "rain_alert":
-            body = "Rain expected today. Push delivery bundles and convenience offers for higher order volume."
+            body = "Rain expected today. Push delivery bundles and priority convenience offers."
             cta = "Boost Delivery"
         elif trig == "regulation_change":
-            body = "A compliance update may impact local businesses. Review operations and customer notices today."
-            cta = "Stay Compliant"
+            body = "Compliance update released. Review operations, pricing notices, and customer messaging today."
+            cta = "Review Update"
         else:
-            body = "A new local growth opportunity is available today. Activate a quick campaign now."
+            body = "Fresh local demand signal detected. Launch a quick campaign today."
             cta = "Act Now"
         actions.append({
             "trigger_id": trig,
@@ -118,19 +148,14 @@ def tick(req: TickRequest):
         })
     return {"actions": actions}
 
-def repeated_loop(conversation_id: str, msg: str):
-    prev = loop_memory.get(conversation_id)
-    if prev == msg:
-        return True
-    loop_memory[conversation_id] = msg
-    return False
-
 @app.post("/v1/reply")
 def reply(req: ReplyRequest):
     msg = req.message.lower()
+    category = detect_category(req.merchant_id)
+    name = merchant_name(req.merchant_id)
     stop_words = [
         "stop", "unsubscribe", "spam",
-        "leave me alone", "annoying",
+        "leave me alone", "dont message",
         "don't message", "stop messaging"
     ]
     if any(x in msg for x in stop_words):
@@ -143,91 +168,69 @@ def reply(req: ReplyRequest):
             "action": "end",
             "body": "We'll pause here for now. Reach out anytime when you'd like fresh growth ideas."
         }
+
     if req.from_role == "customer":
         if any(x in msg for x in ["book", "reserve", "table", "appointment"]):
             return {
                 "action": "send",
-                "body": "Thanks! Your booking request has been shared with the merchant. You'll receive confirmation shortly."
-            }
-        if any(x in msg for x in ["order", "buy", "delivery", "pizza", "food"]):
-            return {
-                "action": "send",
-                "body": "Thanks! Your order request has been shared with the merchant team for quick assistance."
-            }
-        if any(x in msg for x in ["timing", "hours", "open", "close"]):
-            return {
-                "action": "send",
-                "body": "Thanks for checking in. The merchant will confirm operating hours shortly."
+                "body": f"Thanks! Your booking request has been sent to {name}. You'll receive confirmation shortly."
             }
         if any(x in msg for x in ["price", "cost", "menu", "charges"]):
             return {
                 "action": "send",
-                "body": "Thanks! The merchant team will share pricing details shortly."
+                "body": f"Thanks! {name} will share pricing details with you shortly."
+            }
+        if any(x in msg for x in ["timing", "hours", "open", "close"]):
+            return {
+                "action": "send",
+                "body": f"Thanks for checking in. {name} will confirm opening hours shortly."
+            }
+        if any(x in msg for x in ["order", "buy", "delivery"]):
+            return {
+                "action": "send",
+                "body": f"Thanks! Your order request has been sent to {name} for quick assistance."
             }
         return {
             "action": "send",
-            "body": "Thanks for contacting the merchant. Your message has been forwarded for assistance."
+            "body": f"Thanks for contacting {name}. Your message has been shared with the merchant."
         }
-    else:
-        if any(x in msg for x in [
-            "clinic", "patient", "doctor",
-            "x-ray", "hospital", "scan", "dentist"
-        ]):
-            return {
-                "action": "send",
-                "body": "Increase patient bookings using local search visibility, appointment reminders, review growth, and follow-up campaigns."
-            }
-        if any(x in msg for x in [
-            "restaurant", "cafe", "pizza",
-            "food", "orders", "table"
-        ]):
-            return {
-                "action": "send",
-                "body": "Grow orders using combo meals, delivery promotions, repeat-customer offers, and local map visibility."
-            }
-        if any(x in msg for x in [
-            "salon", "spa", "beauty", "hair"
-        ]):
-            return {
-                "action": "send",
-                "body": "Increase bookings using makeover packages, referral offers, review growth, and appointment reminders."
-            }
-        if any(x in msg for x in [
-            "gym", "fitness", "trainer", "workout"
-        ]):
-            return {
-                "action": "send",
-                "body": "Grow memberships using trial passes, referral rewards, transformation stories, and retention campaigns."
-            }
-        if any(x in msg for x in [
-            "tuition", "coaching", "academy", "school"
-        ]):
-            return {
-                "action": "send",
-                "body": "Increase enrollments using demo classes, parent trust campaigns, local visibility, and referral programs."
-            }
-        if any(x in msg for x in [
-            "sales", "dropping", "down", "decline"
-        ]):
-            return {
-                "action": "send",
-                "body": "Recover sales with combo offers, local ads, festive promotions, and reactivation campaigns for past customers."
-            }
-        if any(x in msg for x in [
-            "repeat", "retention", "loyal"
-        ]):
-            return {
-                "action": "send",
-                "body": "Increase repeat customers using loyalty rewards, review follow-ups, referral offers, and personalized comeback campaigns."
-            }
-        if any(x in msg for x in [
-            "growth", "customer", "acquire", "help"
-        ]):
-            return {
-                "action": "send",
-                "body": "Acquire new customers using first-order offers, referral incentives, social proof, and hyperlocal targeting."
-            }
+
+    if category == "restaurant" or any(x in msg for x in ["pizza", "food", "restaurant", "cafe"]):
         return {
             "action": "send",
-            "body": "I can help improve growth, retention, promotions, visibility, and overall merchant performance."
+            "body": "Grow orders using lunch combos, Google review boosts, delivery promos, repeat-diner rewards, and weekend family offers."
         }
+    if category == "salon" or any(x in msg for x in ["salon", "spa", "beauty", "hair"]):
+        return {
+            "action": "send",
+            "body": "Increase bookings using bridal packages, rebooking reminders, referral rewards, makeover reels, and festive beauty offers."
+        }
+    if category in ["clinic", "healthcare"] or any(x in msg for x in ["clinic", "doctor", "x-ray", "patient", "scan", "dentist"]):
+        return {
+            "action": "send",
+            "body": "Increase patient bookings using local SEO, recall reminders, same-day diagnostics, dentist partnerships, and review growth."
+        }
+    if category == "gym" or any(x in msg for x in ["gym", "fitness", "trainer"]):
+        return {
+            "action": "send",
+            "body": "Grow memberships using free trials, referral rewards, body-transformation stories, retention plans, and class upsells."
+        }
+    if category in ["education", "academy"] or any(x in msg for x in ["tuition", "academy", "coaching"]):
+        return {
+            "action": "send",
+            "body": "Increase enrollments using demo classes, topper success stories, parent trust campaigns, referrals, and exam-season offers."
+        }
+    if any(x in msg for x in ["sales", "dropping", "decline", "down"]):
+        return {
+            "action": "send",
+            "body": "Recover sales using limited-time bundles, reactivation offers, local ads, referral pushes, and repeat-customer rewards."
+        }
+    if any(x in msg for x in ["growth", "help", "customer", "acquire"]):
+        return {
+            "action": "send",
+            "body": "Acquire new customers using first-order offers, strong reviews, referral incentives, WhatsApp follow-ups, and local targeting."
+        }
+    return {
+        "action": "send",
+        "body": "I can help improve customer acquisition, repeat sales, promotions, visibility, and business growth."
+    }
