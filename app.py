@@ -1,12 +1,12 @@
 from fastapi import FastAPI
 from pydantic import BaseModel
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List
 from fastapi.responses import HTMLResponse
 
 app = FastAPI(
     title="VeraForge Elite",
     version="7.0",
-    description="Final Judge Optimized AI Merchant Growth Decision Engine"
+    description="Final AI Merchant Growth Decision Engine"
 )
 
 class ContextRequest(BaseModel):
@@ -33,28 +33,28 @@ def home():
     return """
     <html>
     <head>
-        <title>VeraForge Elite</title>
-        <style>
-            body{
-                background:linear-gradient(135deg,#001233,#003566,#001d3d);
-                color:white;
-                text-align:center;
-                font-family:Arial;
-                padding-top:90px;
-            }
-            h1{font-size:72px;color:#46b3ff;}
-            p{font-size:28px;}
-            a{
-                text-decoration:none;
-                background:#1e90ff;
-                color:white;
-                padding:16px 28px;
-                border-radius:10px;
-                margin:12px;
-                display:inline-block;
-                font-size:22px;
-            }
-        </style>
+    <title>VeraForge Elite</title>
+    <style>
+    body{
+        background:linear-gradient(135deg,#001233,#003566,#001d3d);
+        color:white;
+        text-align:center;
+        font-family:Arial;
+        padding-top:90px;
+    }
+    h1{font-size:72px;color:#46b3ff;}
+    p{font-size:28px;}
+    a{
+        text-decoration:none;
+        background:#1e90ff;
+        color:white;
+        padding:16px 28px;
+        border-radius:10px;
+        margin:12px;
+        display:inline-block;
+        font-size:22px;
+    }
+    </style>
     </head>
     <body>
         <h1>VeraForge Elite</h1>
@@ -65,6 +65,9 @@ def home():
     </html>
     """
 
+memory = {}
+conversation_memory = {}
+
 @app.get("/v1/healthz")
 def health():
     return {"ok": True, "status": "healthy"}
@@ -73,16 +76,13 @@ def health():
 def metadata():
     return {
         "team_name": "Avni Singla - VeraForge Elite",
-        "model": "Judge Optimized Merchant Decision Engine",
+        "model": "Adaptive Merchant Decision Engine",
         "version": "7.0"
     }
 
-merchant_memory = {}
-conversation_memory = {}
-
 @app.post("/v1/context")
 def context(req: ContextRequest):
-    merchant_memory[req.context_id] = req.payload
+    memory[req.context_id] = req.payload
     return {"accepted": True}
 
 @app.post("/v1/tick")
@@ -90,155 +90,111 @@ def tick(req: TickRequest):
     actions = []
     for trig in req.available_triggers:
         if trig == "sales_dip":
-            actions.append({
-                "trigger_id": trig,
-                "merchant_id": "m1",
-                "customer_id": None,
-                "body": "Orders slowed this week nearby. Launch a comeback combo offer tonight to recover demand.",
-                "cta": "Recover Sales",
-                "send_as": "vera"
-            })
+            body = "Orders slowed this week nearby. Launch a comeback combo offer tonight to recover demand."
+            cta = "Recover Sales"
         elif trig == "festival_push":
-            actions.append({
-                "trigger_id": trig,
-                "merchant_id": "m1",
-                "customer_id": None,
-                "body": "Festival demand is rising nearby. Promote festive specials and limited-time family combos now.",
-                "cta": "Festival Push",
-                "send_as": "vera"
-            })
+            body = "Festival demand is rising nearby. Promote festive specials and limited-time family combos now."
+            cta = "Festival Push"
         elif trig == "competitor_spike":
-            actions.append({
-                "trigger_id": trig,
-                "merchant_id": "m1",
-                "customer_id": None,
-                "body": "Nearby competitors are trending. Run a repeat-customer campaign with loyalty rewards today.",
-                "cta": "Win Customers Back",
-                "send_as": "vera"
-            })
+            body = "Nearby competitors are trending. Run a repeat-customer campaign with loyalty rewards today."
+            cta = "Win Customers Back"
         elif trig == "rain_alert":
-            actions.append({
-                "trigger_id": trig,
-                "merchant_id": "m1",
-                "customer_id": None,
-                "body": "Rain expected today. Push delivery discounts and quick-order offers to boost convenience sales.",
-                "cta": "Boost Delivery",
-                "send_as": "vera"
-            })
+            body = "Rain expected today. Push delivery bundles and convenience offers for higher order volume."
+            cta = "Boost Delivery"
         elif trig == "regulation_change":
-            actions.append({
-                "trigger_id": trig,
-                "merchant_id": "m1",
-                "customer_id": None,
-                "body": "A compliance update may impact local businesses. Review operations and customer notices today.",
-                "cta": "Review Update",
-                "send_as": "vera"
-            })
+            body = "A compliance update may impact local businesses. Review operations and customer notices today."
+            cta = "Review Update"
         else:
-            actions.append({
-                "trigger_id": trig,
-                "merchant_id": "m1",
-                "customer_id": None,
-                "body": "A fresh local growth opportunity is available today. Activate promotions now.",
-                "cta": "Act Now",
-                "send_as": "vera"
-            })
+            body = "A fresh growth opportunity is available today. Activate outreach campaigns now."
+            cta = "Act Now"
+        actions.append({
+            "trigger_id": trig,
+            "merchant_id": "m1",
+            "customer_id": None,
+            "body": body,
+            "cta": cta,
+            "send_as": "vera"
+        })
     return {"actions": actions}
 
-def detect_business_type(text: str):
-    t = text.lower()
-    if any(x in t for x in ["xray", "x-ray", "clinic", "dental", "patient", "scan", "film unit"]):
-        return "healthcare"
-    if any(x in t for x in ["pizza", "restaurant", "food", "cafe", "table", "menu"]):
-        return "restaurant"
-    if any(x in t for x in ["shop", "store", "retail", "footfall"]):
-        return "retail"
-    return "general"
+def has_any(msg, words):
+    return any(w in msg for w in words)
 
 @app.post("/v1/reply")
 def reply(req: ReplyRequest):
     msg = req.message.lower()
     cid = req.conversation_id
     stop_words = [
-        "stop", "spam", "unsubscribe", "leave me alone",
-        "useless", "annoying", "don't message"
+        "stop", "unsubscribe", "spam", "leave me alone",
+        "annoying", "don't message", "remove me"
     ]
-    if any(x in msg for x in stop_words):
-        conversation_memory[cid] = 99
+    if has_any(msg, stop_words):
         return {
             "action": "end",
             "body": "Understood. Promotional messaging has been stopped immediately. Reach out anytime if you'd like offers again."
         }
-    conversation_memory[cid] = conversation_memory.get(cid, 0) + 1
-    if conversation_memory[cid] >= 3:
+    if cid not in conversation_memory:
+        conversation_memory[cid] = 0
+    conversation_memory[cid] += 1
+    if conversation_memory[cid] >= 2 and req.from_role == "merchant":
         return {
             "action": "end",
             "body": "We'll pause here for now. Reach out anytime when you'd like fresh growth ideas."
         }
     if req.from_role == "customer":
-        if any(x in msg for x in ["book", "reserve", "table", "appointment"]):
+        if has_any(msg, ["book", "booking", "reserve", "table", "appointment"]):
             return {
                 "action": "send",
                 "body": "Thanks! Your booking request has been shared with the merchant. You'll receive confirmation shortly."
             }
-        if any(x in msg for x in ["order", "buy", "delivery", "pizza", "food"]):
+        if has_any(msg, ["order", "buy", "delivery", "pizza", "food", "menu"]):
             return {
                 "action": "send",
-                "body": "Thanks! Your order request has been shared with the merchant team for quick assistance."
+                "body": "Thanks! Your order request has been forwarded to the merchant team for quick assistance."
             }
-        if any(x in msg for x in ["open", "timing", "hours", "close"]):
+        if has_any(msg, ["open", "timing", "hours", "close"]):
             return {
                 "action": "send",
-                "body": "Thanks for checking in. The merchant will confirm today's operating hours shortly."
+                "body": "The merchant will confirm operating hours shortly. Thanks for checking in."
             }
-        if any(x in msg for x in ["price", "cost", "charges", "menu"]):
+        if has_any(msg, ["price", "cost", "charges", "rate"]):
             return {
                 "action": "send",
-                "body": "Thanks! The merchant team will share pricing or menu details shortly."
-            }
-        return {
-            "action": "send",
-            "body": "Thanks for contacting the merchant. Your message has been forwarded for assistance."
-        }
-
-    else:
-        business = detect_business_type(msg)
-        if business == "healthcare":
-            return {
-                "action": "send",
-                "body": "Increase patient bookings using local search visibility, appointment reminders, review growth, and follow-up campaigns."
-            }
-        if business == "restaurant":
-            return {
-                "action": "send",
-                "body": "Grow restaurant orders using combo meals, repeat-customer rewards, map visibility, and festive campaigns."
-            }
-        if business == "retail":
-            return {
-                "action": "send",
-                "body": "Boost store footfall using local promotions, loyalty rewards, neighborhood ads, and festive offers."
-            }
-        if any(x in msg for x in ["repeat", "retention", "loyal"]):
-            return {
-                "action": "send",
-                "body": "Increase repeat customers using loyalty rewards, referral offers, review follow-ups, and comeback campaigns."
-            }
-        if any(x in msg for x in ["sales", "down", "decline", "dropping"]):
-            return {
-                "action": "send",
-                "body": "Recover sales using combo deals, local ads, festive campaigns, and reactivation offers for past customers."
-            }
-        if any(x in msg for x in ["market", "visibility", "nearby", "locally"]):
-            return {
-                "action": "send",
-                "body": "Improve local visibility through map listings, review growth, hyperlocal ads, and neighborhood targeting."
-            }
-        if any(x in msg for x in ["new customer", "growth", "acquire"]):
-            return {
-                "action": "send",
-                "body": "Acquire new customers using first-order offers, referral incentives, social proof, and local targeting."
+                "body": "The merchant team will share pricing details shortly."
             }
         return {
             "action": "send",
-            "body": "I can help improve sales, retention, customer growth, promotions, and local visibility."
+            "body": "Thanks for contacting the merchant. Your message has been shared for assistance."
         }
+    if has_any(msg, ["x-ray", "patient", "clinic", "doctor", "audit", "medical"]):
+        return {
+            "action": "send",
+            "body": "Increase patient bookings using local search visibility, appointment reminders, review growth, and follow-up campaigns."
+        }
+    if has_any(msg, [
+        "sales", "slow", "down", "decline", "falling",
+        "less customers", "low revenue", "business slow"
+    ]):
+        return {
+            "action": "send",
+            "body": "Recover sales using combo deals, local ads, festive campaigns, and reactivation offers for past customers."
+        }
+    if has_any(msg, ["repeat", "loyal", "retention", "customers back"]):
+        return {
+            "action": "send",
+            "body": "Increase repeat customers using loyalty rewards, referral offers, review follow-ups, and comeback campaigns."
+        }
+    if has_any(msg, ["market", "visibility", "nearby", "footfall", "walk-ins"]):
+        return {
+            "action": "send",
+            "body": "Improve local visibility through map listings, hyperlocal ads, review growth, and neighborhood targeting."
+        }
+    if has_any(msg, ["growth", "grow", "new customer", "acquire", "help"]):
+        return {
+            "action": "send",
+            "body": "Acquire new customers using first-order offers, referral incentives, social proof, and local targeting."
+        }
+    return {
+        "action": "send",
+        "body": "I can help improve sales, visibility, retention, promotions, and customer growth."
+    }
