@@ -79,7 +79,7 @@ def metadata():
     return {
         "team_name": "Avni Singla - VeraForge Elite",
         "version": "8.1",
-        "engine": "Evaluator Optimized Decision AI"
+        "engine": "AI Merchant Growth Decision Engine"
     }
 
 def normalize(text):
