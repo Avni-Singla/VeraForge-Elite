@@ -96,7 +96,7 @@ def merchant_name(merchant_id):
     ctx = merchant_memory.get(merchant_id, {})
     payload = ctx.get("payload", {})
     identity = payload.get("identity", {})
-    return identity.get("name", "your business")
+    return identity.get("name", "Your business")
 
 def repeated_loop(cid, msg):
     norm = normalize(msg)
