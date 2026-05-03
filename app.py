@@ -6,7 +6,7 @@ import re
 
 app = FastAPI(
     title="VeraForge Elite",
-    version="8.1",
+    version="9.0",
     description="AI Merchant Growth Decision Engine"
 )
 
@@ -37,35 +37,35 @@ def home():
     return """
     <html>
     <head>
-    <title>VeraForge Elite</title>
-    <style>
-    body{
-        margin:0;
-        font-family:Arial;
-        text-align:center;
-        background:linear-gradient(135deg,#001233,#003566,#001d3d);
-        color:white;
-        padding-top:90px;
-    }
-    h1{font-size:72px;color:#46b3ff;}
-    p{font-size:28px;}
-    a{
-        text-decoration:none;
-        background:#1e90ff;
-        color:white;
-        padding:16px 28px;
-        border-radius:10px;
-        margin:12px;
-        display:inline-block;
-        font-size:22px;
-    }
-    </style>
+        <title>VeraForge Elite</title>
+        <style>
+            body{
+                margin:0;
+                font-family:Arial;
+                text-align:center;
+                background:linear-gradient(135deg,#001233,#003566,#001d3d);
+                color:white;
+                padding-top:90px;
+            }
+            h1{font-size:72px;color:#46b3ff;}
+            p{font-size:28px;}
+            a{
+                text-decoration:none;
+                background:#1e90ff;
+                color:white;
+                padding:16px 28px;
+                border-radius:10px;
+                margin:12px;
+                display:inline-block;
+                font-size:22px;
+            }
+        </style>
     </head>
     <body>
         <h1>VeraForge Elite</h1>
         <p>AI Merchant Growth Decision Engine</p>
-        <a href='/docs'>API Docs</a>
-        <a href='/v1/healthz'>Health</a>
+        <a href="/docs">API Docs</a>
+        <a href="/v1/healthz">Health</a>
     </body>
     </html>
     """
@@ -78,7 +78,7 @@ def health():
 def metadata():
     return {
         "team_name": "Avni Singla - VeraForge Elite",
-        "version": "8.1",
+        "version": "9.0",
         "engine": "AI Merchant Growth Decision Engine"
     }
 
@@ -96,7 +96,7 @@ def merchant_name(merchant_id):
     ctx = merchant_memory.get(merchant_id, {})
     payload = ctx.get("payload", {})
     identity = payload.get("identity", {})
-    return identity.get("name", "Your business")
+    return identity.get("name", "your business")
 
 def repeated_loop(cid, msg):
     norm = normalize(msg)
@@ -118,7 +118,9 @@ def context(req: ContextRequest):
 @app.post("/v1/tick")
 def tick(req: TickRequest):
     actions = []
-    for trig in req.available_triggers:
+    mids = list(merchant_memory.keys()) or ["m1"]
+    for i, trig in enumerate(req.available_triggers):
+        mid = mids[i % len(mids)]
         if trig == "sales_dip":
             body = "Orders slowed nearby this week. Launch a dinner combo + comeback SMS campaign tonight."
             cta = "Recover Sales"
@@ -129,17 +131,17 @@ def tick(req: TickRequest):
             body = "Nearby competitors are trending. Win repeat customers back with loyalty rewards now."
             cta = "Win Customers Back"
         elif trig == "rain_alert":
-            body = "Rain expected today. Push delivery bundles and priority convenience offers."
+            body = "Rain expected today. Push delivery bundles and convenience offers immediately."
             cta = "Boost Delivery"
         elif trig == "regulation_change":
-            body = "Compliance update released. Review operations, pricing notices, and customer messaging today."
+            body = "Compliance update released. Review pricing notices, operations flow, and customer messaging today."
             cta = "Review Update"
         else:
-            body = "Fresh local demand signal detected. Launch a quick campaign today."
+            body = "Fresh local growth signal detected. Launch a quick campaign today."
             cta = "Act Now"
         actions.append({
             "trigger_id": trig,
-            "merchant_id": "m1",
+            "merchant_id": mid,
             "customer_id": None,
             "body": body,
             "cta": cta,
@@ -202,47 +204,47 @@ def reply(req: ReplyRequest):
     ):
         return {
             "action": "send",
-            "body": f"{name} can increase patient bookings this month using Google Maps visibility, recall reminders, same-day diagnostics, referral tie-ups, and stronger reviews."
+            "body": f"{name} can increase patient bookings this month using Google Maps visibility, recall reminders, same-day diagnostics, doctor tie-ups, and stronger reviews. Want a patient growth plan first?"
         }
     if category == "salon" or any(
         x in msg for x in ["salon", "spa", "beauty", "hair", "makeup"]
     ):
         return {
             "action": "send",
-            "body": f"{name} can fill upcoming appointment slots using bridal packages, rebooking reminders, makeover reels, festive beauty offers, and referral rewards."
+            "body": f"{name} can fill upcoming appointment slots using bridal packages, rebooking reminders, makeover reels, festive beauty offers, and referral rewards. Want a festive bookings plan?"
         }
     if category == "gym" or any(
         x in msg for x in ["gym", "fitness", "trainer", "workout"]
     ):
         return {
             "action": "send",
-            "body": f"{name} can grow memberships using free trials, body-transformation stories, referral rewards, retention plans, and class upsells this month."
+            "body": f"{name} can grow memberships this month using free trials, body-transformation stories, referral rewards, retention plans, and class upsells. Want a 7-day growth campaign?"
         }
     if category in ["education", "academy"] or any(
         x in msg for x in ["tuition", "academy", "coaching", "school", "institute"]
     ):
         return {
             "action": "send",
-            "body": f"{name} can increase enrollments using free demo classes, topper success stories, parent trust campaigns, referrals, and exam-season offers."
+            "body": f"{name} can increase enrollments using free demo classes, topper success stories, parent trust campaigns, referrals, and exam-season offers. Want a lead generation plan?"
         }
     if category == "restaurant" or any(
         x in msg for x in ["pizza", "food", "restaurant", "cafe", "orders", "table", "menu"]
     ):
         return {
             "action": "send",
-            "body": f"{name} can grow weekend orders using lunch combos, delivery promos, Google review boosts, repeat-diner rewards, and family meal offers."
+            "body": f"{name} can grow weekend orders using lunch combos, delivery promos, Google review boosts, repeat-diner rewards, and family meal offers. Want this week's promo plan?"
         }
     if any(x in msg for x in ["sales", "dropping", "decline", "down", "slow"]):
         return {
             "action": "send",
-            "body": f"{name} can recover sales using limited-time offers, reactivation campaigns, local ads, referral pushes, and repeat-customer rewards."
+            "body": f"{name} can recover sales using limited-time offers, reactivation campaigns, local ads, referral pushes, and repeat-customer rewards. Want a comeback strategy first?"
         }
     if any(x in msg for x in ["growth", "help", "customer", "acquire", "marketing"]):
         return {
             "action": "send",
-            "body": f"{name} can acquire new customers using first-order offers, better reviews, WhatsApp follow-ups, referral incentives, and local targeting."
+            "body": f"{name} can acquire new customers using first-order offers, better reviews, WhatsApp follow-ups, referral incentives, and local targeting. Want the fastest growth strategy first?"
         }
     return {
         "action": "send",
-        "body": f"{name} can improve visibility, customer acquisition, repeat sales, promotions, and overall business growth."
+        "body": f"{name} can improve visibility, customer acquisition, repeat sales, promotions, and overall business growth. Want quick wins first?"
     }
