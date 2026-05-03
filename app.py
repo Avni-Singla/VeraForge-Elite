@@ -149,7 +149,7 @@ def tick(req: TickRequest):
 
 @app.post("/v1/reply")
 def reply(req: ReplyRequest):
-    msg = req.message.lower()
+    msg = req.message.lower().strip()
     category = detect_category(req.merchant_id)
     name = merchant_name(req.merchant_id)
     stop_words = [
@@ -171,73 +171,78 @@ def reply(req: ReplyRequest):
         if any(x in msg for x in ["book", "reserve", "table", "appointment"]):
             return {
                 "action": "send",
-                "body": f"Thanks! Your booking request has been sent to {name}. You'll receive confirmation shortly."
+                "body": f"Thanks! {name} has received your booking request and should confirm shortly."
             }
-        if any(x in msg for x in ["price", "cost", "menu", "charges"]):
+        if any(x in msg for x in ["price", "cost", "menu", "charges", "fees"]):
             return {
                 "action": "send",
-                "body": f"Thanks! {name} will share pricing details with you shortly."
+                "body": f"Thanks! {name} received your pricing request and will respond shortly. You can also ask about today's offers."
             }
         if any(x in msg for x in ["timing", "hours", "open", "close"]):
             return {
                 "action": "send",
                 "body": f"Thanks for checking in. {name} will confirm opening hours shortly."
             }
-        if any(x in msg for x in ["order", "buy", "delivery"]):
+        if any(x in msg for x in ["order", "buy", "delivery", "pickup"]):
             return {
                 "action": "send",
-                "body": f"Thanks! Your order request has been sent to {name} for quick assistance."
+                "body": f"Thanks! {name} received your order request and will assist you shortly."
+            }
+        if any(x in msg for x in ["location", "address", "where"]):
+            return {
+                "action": "send",
+                "body": f"Thanks! {name} will share location details with you shortly."
             }
         return {
             "action": "send",
-            "body": f"Thanks for contacting {name}. Your message has been shared with the merchant."
+            "body": f"Thanks for contacting {name}. Your message has been shared and you'll hear back soon."
         }
     if category in ["clinic", "healthcare"] or any(
         x in msg for x in ["clinic", "doctor", "x-ray", "patient", "scan", "dentist", "hospital"]
     ):
         return {
             "action": "send",
-            "body": "Increase patient bookings using Google Maps visibility, recall reminders, same-day diagnostics, doctor referrals, and review growth."
+            "body": f"{name} can increase patient bookings this month using Google Maps visibility, recall reminders, same-day diagnostics, referral tie-ups, and stronger reviews."
         }
     if category == "salon" or any(
-        x in msg for x in ["salon", "spa", "beauty", "hair"]
+        x in msg for x in ["salon", "spa", "beauty", "hair", "makeup"]
     ):
         return {
             "action": "send",
-            "body": "Increase bookings using bridal packages, rebooking reminders, referral rewards, makeover reels, and festive beauty offers."
+            "body": f"{name} can fill upcoming appointment slots using bridal packages, rebooking reminders, makeover reels, festive beauty offers, and referral rewards."
         }
     if category == "gym" or any(
         x in msg for x in ["gym", "fitness", "trainer", "workout"]
     ):
         return {
             "action": "send",
-            "body": "Grow memberships using free trials, referral rewards, body-transformation stories, retention plans, and class upsells."
+            "body": f"{name} can grow memberships using free trials, body-transformation stories, referral rewards, retention plans, and class upsells this month."
         }
     if category in ["education", "academy"] or any(
-        x in msg for x in ["tuition", "academy", "coaching", "school"]
+        x in msg for x in ["tuition", "academy", "coaching", "school", "institute"]
     ):
         return {
             "action": "send",
-            "body": "Increase enrollments using demo classes, topper success stories, parent trust campaigns, referrals, and exam-season offers."
+            "body": f"{name} can increase enrollments using free demo classes, topper success stories, parent trust campaigns, referrals, and exam-season offers."
         }
     if category == "restaurant" or any(
-        x in msg for x in ["pizza", "food", "restaurant", "cafe", "orders", "table"]
+        x in msg for x in ["pizza", "food", "restaurant", "cafe", "orders", "table", "menu"]
     ):
         return {
             "action": "send",
-            "body": "Grow orders using lunch combos, Google review boosts, delivery promos, repeat-diner rewards, and weekend family offers."
+            "body": f"{name} can grow weekend orders using lunch combos, delivery promos, Google review boosts, repeat-diner rewards, and family meal offers."
         }
-    if any(x in msg for x in ["sales", "dropping", "decline", "down"]):
+    if any(x in msg for x in ["sales", "dropping", "decline", "down", "slow"]):
         return {
             "action": "send",
-            "body": "Recover sales using limited-time bundles, reactivation offers, local ads, referral pushes, and repeat-customer rewards."
+            "body": f"{name} can recover sales using limited-time offers, reactivation campaigns, local ads, referral pushes, and repeat-customer rewards."
         }
-    if any(x in msg for x in ["growth", "help", "customer", "acquire"]):
+    if any(x in msg for x in ["growth", "help", "customer", "acquire", "marketing"]):
         return {
             "action": "send",
-            "body": "Acquire new customers using first-order offers, strong reviews, referral incentives, WhatsApp follow-ups, and local targeting."
+            "body": f"{name} can acquire new customers using first-order offers, better reviews, WhatsApp follow-ups, referral incentives, and local targeting."
         }
     return {
         "action": "send",
-        "body": "I can help improve customer acquisition, repeat sales, promotions, visibility, and business growth."
+        "body": f"{name} can improve visibility, customer acquisition, repeat sales, promotions, and overall business growth."
     }
